@@ -6,31 +6,45 @@ import {
 } from '@tanstack/react-table';
 import api from '../services/api';
 import MainLayout from '../components/MainLayout';
-import { RefreshCw, Plus, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Plus, X, Search, ChevronLeft, ChevronRight, Edit, Trash2, Eye } from 'lucide-react';
 
 export default function InventoryPage() {
   const [data, setData] = useState([]);
-  const [itemTypes, setItemTypes] = useState([]); // State untuk daftar kategori/tipe barang
+  const [itemTypes, setItemTypes] = useState([]); 
+  const [subTypes, setSubTypes] = useState([]); 
   const [loading, setLoading] = useState(false);
   
-  // State untuk Server-Side Parameters & Pagination
   const [totalRows, setTotalRows] = useState(0);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
-  const [sorting, setSorting] = useState([{ id: 'id', desc: false }]);
+  // Diubah menjadi desc: true agar data terbaru/teratas muncul pertama kali
+  const [sorting, setSorting] = useState([{ id: 'id', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // State untuk Modal Tambah Data (ditambahkan itemTypeId)
+  // State untuk Modal Tambah/Edit & Modal Detail
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', stock: '', price: '', itemTypeId: '' });
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentId, setCurrentId] = useState(null);
+
+  // State untuk Modal Detail
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedItemDetail, setSelectedItemDetail] = useState(null);
+
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    quantity: '', 
+    price: '', 
+    itemTypeId: '', 
+    itemSubTypeId: '',
+    serialNumber: '' 
+  });
   const [displayPrice, setDisplayPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Fungsi fetch data Tipe Barang untuk Dropdown (SUDAH DISESUAIKAN)
   const fetchItemTypes = async () => {
     try {
       const response = await api.get('/inventory-service/api/inventory/types');
@@ -40,7 +54,20 @@ export default function InventoryPage() {
     }
   };
 
-  // Fungsi fetch data inventory dari Backend
+  const fetchSubTypesByTypeId = async (typeId) => {
+    if (!typeId) {
+      setSubTypes([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/inventory-service/api/inventory/types/by-type/${typeId}`);
+      setSubTypes(response.data);
+    } catch (err) {
+      console.error("Gagal memuat sub-tipe barang:", err);
+      setSubTypes([]);
+    }
+  };
+
   const fetchInventory = async () => {
     setLoading(true);
     try {
@@ -69,19 +96,85 @@ export default function InventoryPage() {
   };
 
   useEffect(() => {
-    fetchItemTypes(); // Ambil data tipe saat halaman dimuat
+    fetchItemTypes();
   }, []);
 
   useEffect(() => {
     fetchInventory();
   }, [pagination.pageIndex, pagination.pageSize, sorting, globalFilter, startDate, endDate]);
 
-  // Definisi Kolom untuk TanStack Table (Ditambahkan kolom Tipe Barang)
+  const handleItemTypeChange = async (e) => {
+    const selectedTypeId = e.target.value;
+    setFormData({
+      ...formData,
+      itemTypeId: selectedTypeId,
+      itemSubTypeId: '',
+      serialNumber: ''
+    });
+    
+    if (selectedTypeId) {
+      await fetchSubTypesByTypeId(selectedTypeId);
+    } else {
+      setSubTypes([]);
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setIsEditMode(false);
+    setCurrentId(null);
+    setFormData({ name: '', quantity: '', price: '', itemTypeId: '', itemSubTypeId: '', serialNumber: '' });
+    setSubTypes([]);
+    setDisplayPrice('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = async (item) => {
+    setIsEditMode(true);
+    setCurrentId(item.id);
+    
+    const typeId = item.itemType ? item.itemType.id : '';
+    const subTypeId = item.itemSubType ? item.itemSubType.id : '';
+
+    setFormData({
+      name: item.name || '',
+      quantity: item.quantity || '',
+      price: item.price ? item.price.toString() : '',
+      itemTypeId: typeId,
+      itemSubTypeId: subTypeId,
+      serialNumber: item.serialNumber || '',
+      itemCode: item.itemCode || ''
+    });
+    setDisplayPrice(item.price ? Number(item.price).toLocaleString('id-ID') : '');
+
+    if (typeId) {
+      await fetchSubTypesByTypeId(typeId);
+    } else {
+      setSubTypes([]);
+    }
+
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDetailModal = (item) => {
+    setSelectedItemDetail(item);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus barang ini?")) return;
+    try {
+      await api.delete(`/inventory-service/api/inventory/${id}`);
+      fetchInventory();
+    } catch (err) {
+      console.error("Gagal menghapus data:", err);
+    }
+  };
+
   const columns = React.useMemo(() => [
     {
-      accessorKey: 'id',
-      header: 'ID',
-      cell: info => `#${info.getValue()}`,
+      accessorKey: 'itemCode',
+      header: 'Kode SKU',
+      cell: info => <span className="font-mono font-semibold text-indigo-600">{info.getValue() || '-'}</span>,
     },
     {
       accessorKey: 'name',
@@ -101,8 +194,8 @@ export default function InventoryPage() {
       },
     },
     {
-      accessorKey: 'stock',
-      header: 'Stok',
+      accessorKey: 'quantity',
+      header: 'Quantity',
       cell: info => (
         <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
           {info.getValue()} Unit
@@ -116,6 +209,35 @@ export default function InventoryPage() {
         <span className="text-indigo-600 font-medium">
           Rp {info.getValue() ? Number(info.getValue()).toLocaleString('id-ID') : '0'}
         </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Aksi',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => handleOpenDetailModal(row.original)}
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg transition"
+            title="Detail Barang"
+          >
+            <Eye size={16} />
+          </button>
+          <button 
+            onClick={() => handleOpenEditModal(row.original)}
+            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition"
+            title="Edit Barang"
+          >
+            <Edit size={16} />
+          </button>
+          <button 
+            onClick={() => handleDelete(row.original.id)}
+            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+            title="Hapus Barang"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       ),
     },
   ], []);
@@ -151,30 +273,43 @@ export default function InventoryPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Payload disesuaikan dengan relasi itemType ke backend Spring Boot
-      await api.post('/inventory-service/api/inventory', {
+      const selectedType = itemTypes.find(t => t.id.toString() === formData.itemTypeId.toString());
+      const isABD = selectedType && (selectedType.code?.toUpperCase() === 'ABD' || selectedType.name?.toUpperCase().includes('ABD'));
+
+      const payload = {
         name: formData.name,
-        stock: parseInt(formData.stock, 10),
+        quantity: parseInt(formData.quantity, 10),
         price: parseFloat(formData.price),
-        itemType: {
-          id: parseInt(formData.itemTypeId, 10)
-        }
-      });
-      setFormData({ name: '', stock: '', price: '', itemTypeId: '' });
+        itemTypeId: parseInt(formData.itemTypeId, 10),
+        itemSubTypeId: formData.itemSubTypeId ? parseInt(formData.itemSubTypeId, 10) : null,
+        serialNumber: isABD ? formData.serialNumber : null
+      };
+
+      if (isEditMode) {
+        await api.put(`/inventory-service/api/inventory/${currentId}`, payload);
+      } else {
+        await api.post('/inventory-service/api/inventory', payload);
+      }
+
+      setFormData({ name: '', quantity: '', price: '', itemTypeId: '', itemSubTypeId: '', serialNumber: '' });
+      setSubTypes([]);
       setDisplayPrice('');
       setIsModalOpen(false);
       fetchInventory();
     } catch (err) {
       console.error("Gagal menyimpan data:", err);
+      alert("Terjadi kesalahan: " + (err.response?.data || err.message));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const selectedTypeObj = itemTypes.find(t => t.id.toString() === formData.itemTypeId?.toString());
+  const isSelectedTypeABD = selectedTypeObj && (selectedTypeObj.code?.toUpperCase() === 'ABD' || selectedTypeObj.name?.toUpperCase().includes('ABD'));
+
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header & Aksi */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">MANAJEMEN INVENTARIS</h1>
@@ -182,7 +317,7 @@ export default function InventoryPage() {
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenAddModal}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"
             >
               <Plus size={16} /> Tambah Barang
@@ -210,25 +345,9 @@ export default function InventoryPage() {
               className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium">Filter Tanggal:</span>
-            <input 
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <span className="text-gray-400">-</span>
-            <input 
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
         </div>
 
-        {/* TABEL DATA DENGAN TANSTACK TABLE */}
+        {/* TABEL DATA */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -256,7 +375,7 @@ export default function InventoryPage() {
               <tbody className="divide-y divide-gray-100 text-sm text-gray-600">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="py-8 text-center text-gray-400">Memuat data dari server...</td>
+                    <td colSpan="6" className="py-8 text-center text-gray-400">Memuat data dari server...</td>
                   </tr>
                 ) : table.getRowModel().rows.length > 0 ? (
                   table.getRowModel().rows.map(row => (
@@ -270,14 +389,14 @@ export default function InventoryPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="py-8 text-center text-gray-400">Tidak ada data ditemukan.</td>
+                    <td colSpan="6" className="py-8 text-center text-gray-400">Tidak ada data ditemukan.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* PAGINATION CONTROLS */}
+          {/* PAGINATION */}
           <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
             <div className="text-sm text-gray-500">
               Menampilkan halaman <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span> dari <span className="font-medium">{table.getPageCount() || 1}</span>
@@ -301,17 +420,92 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* MODAL TAMBAH BARANG */}
-        {isModalOpen && (
+        {/* MODAL DETAIL BARANG */}
+        {isDetailModalOpen && selectedItemDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl relative">
               <div className="flex justify-between items-center mb-4 border-b pb-3">
-                <h3 className="text-lg font-bold text-gray-800">Tambah Inventaris Baru</h3>
+                <h3 className="text-lg font-bold text-gray-800">Detail Informasi Barang</h3>
+                <button onClick={() => setIsDetailModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-3 text-sm text-gray-600">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-semibold text-gray-500">Kode SKU / Item Code:</span>
+                  <span className="font-mono text-indigo-600 font-semibold">{selectedItemDetail.itemCode || '-'}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-semibold text-gray-500">Nama Barang:</span>
+                  <span className="font-medium text-gray-800">{selectedItemDetail.name}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-semibold text-gray-500">Tipe Barang:</span>
+                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-semibold">
+                    {selectedItemDetail.itemType ? selectedItemDetail.itemType.name : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-semibold text-gray-500">Sub-Tipe Barang:</span>
+                  <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-semibold">
+                    {selectedItemDetail.itemSubType ? selectedItemDetail.itemSubType.name : '-'}
+                  </span>
+                </div>
+                {selectedItemDetail.serialNumber && (
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="font-semibold text-gray-500">Nomor Serial:</span>
+                    <span className="font-mono text-gray-800">{selectedItemDetail.serialNumber}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-semibold text-gray-500">Quantity:</span>
+                  <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-semibold">
+                    {selectedItemDetail.quantity} Unit
+                  </span>
+                </div>
+                <div className="flex justify-between pb-2">
+                  <span className="font-semibold text-gray-500">Harga Satuan:</span>
+                  <span className="text-indigo-600 font-semibold">
+                    Rp {selectedItemDetail.price ? Number(selectedItemDetail.price).toLocaleString('id-ID') : '0'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-end pt-4 border-t mt-4">
+                <button 
+                  onClick={() => setIsDetailModalOpen(false)} 
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL TAMBAH / EDIT BARANG */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 className="text-lg font-bold text-gray-800">
+                  {isEditMode ? 'Edit Inventaris Barang' : 'Tambah Inventaris Baru'}
+                </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
                 </button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {isEditMode && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Kode SKU / Item Code</label>
+                    <input 
+                      type="text" 
+                      disabled
+                      value={formData.itemCode || ''}
+                      className="w-full border border-gray-200 bg-gray-100 rounded-lg px-3 py-2 text-sm font-mono text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Nama Barang</label>
                   <input 
@@ -321,13 +515,12 @@ export default function InventoryPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                {/* Dropdown Tipe Barang */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Tipe Barang</label>
                   <select 
                     required
                     value={formData.itemTypeId}
-                    onChange={(e) => setFormData({...formData, itemTypeId: e.target.value})}
+                    onChange={handleItemTypeChange}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   >
                     <option value="">-- Pilih Tipe Barang --</option>
@@ -338,12 +531,47 @@ export default function InventoryPage() {
                     ))}
                   </select>
                 </div>
+                
+                {/* Dropdown Sub-Tipe Barang Dinamis */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Stok</label>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Sub-Tipe Barang</label>
+                  <select 
+                    value={formData.itemSubTypeId}
+                    onChange={(e) => setFormData({...formData, itemSubTypeId: e.target.value})}
+                    disabled={!formData.itemTypeId || subTypes.length === 0}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {!formData.itemTypeId ? "-- Pilih Tipe Terlebih Dahulu --" : subTypes.length === 0 ? "-- Tidak Ada Sub-Tipe --" : "-- Pilih Sub-Tipe Barang --"}
+                    </option>
+                    {subTypes.map((subType) => (
+                      <option key={subType.id} value={subType.id}>
+                        {subType.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Form Input Nomor Serial Kondisional */}
+                {isSelectedTypeABD && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Nomor Serial Alat</label>
+                    <input 
+                      type="text" required
+                      placeholder="Contoh: SN-ABD-2026-001"
+                      value={formData.serialNumber}
+                      onChange={(e) => setFormData({...formData, serialNumber: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Quantity</label>
                   <input 
                     type="number" required
-                    value={formData.stock}
-                    onChange={(e) => setFormData({...formData, stock: e.target.value})}
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({...formData, quantity: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -358,7 +586,9 @@ export default function InventoryPage() {
                 </div>
                 <div className="flex justify-end gap-3 pt-4 border-t">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium">Batal</button>
-                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium">Simpan</button>
+                  <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium">
+                    {isEditMode ? 'Simpan Perubahan' : 'Simpan'}
+                  </button>
                 </div>
               </form>
             </div>

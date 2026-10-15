@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import MainLayout from '../components/MainLayout';
-import { Plus, Layers, X, Trash2, Edit } from 'lucide-react';
+import { Plus, Layers, X, Trash2, Edit, AlertCircle } from 'lucide-react';
 import api from '../services/api'; 
 
 export default function ItemTypePage() {
@@ -12,9 +12,11 @@ export default function ItemTypePage() {
   const [currentId, setCurrentId] = useState(null);
 
   const [typeName, setTypeName] = useState('');
+  const [typeCode, setTypeCode] = useState(''); 
   const [typeDesc, setTypeDesc] = useState('');
+  const [formError, setFormError] = useState('');
 
-  // Fungsi untuk mengambil data dari Backend melalui Edge Gateway (/api/inventory/types)
+  // Fungsi untuk mengambil data dari Backend melalui Edge Gateway
   const fetchItemTypes = async () => {
     setLoading(true);
     try {
@@ -35,7 +37,9 @@ export default function ItemTypePage() {
   const handleOpenAddModal = () => {
     setIsEditMode(false);
     setTypeName('');
+    setTypeCode('');
     setTypeDesc('');
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -44,7 +48,9 @@ export default function ItemTypePage() {
     setIsEditMode(true);
     setCurrentId(item.id);
     setTypeName(item.name);
+    setTypeCode(item.code || '');
     setTypeDesc(item.description || '');
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -52,28 +58,35 @@ export default function ItemTypePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!typeName) return;
+    setFormError(''); 
     
     try {
+      const payload = {
+        name: typeName,
+        code: typeCode || null,
+        description: typeDesc || '-'
+      };
+
       if (isEditMode) {
-        // Request PUT untuk update berdasarkan ID
-        await api.put(`/inventory-service/api/inventory/types/${currentId}`, {
-          name: typeName,
-          description: typeDesc || '-'
-        });
+        await api.put(`/inventory-service/api/inventory/types/${currentId}`, payload);
       } else {
-        // Request POST untuk tambah baru
-        await api.post('/inventory-service/api/inventory/types', {
-          name: typeName,
-          description: typeDesc || '-'
-        });
+        await api.post('/inventory-service/api/inventory/types', payload);
       }
 
       setTypeName('');
+      setTypeCode('');
       setTypeDesc('');
+      setFormError('');
       setIsModalOpen(false);
-      fetchItemTypes(); // Refresh data setelah berhasil simpan
+      fetchItemTypes(); 
     } catch (err) {
       console.error("Gagal menyimpan data:", err);
+      const resData = err.response?.data;
+      const errorMessage = typeof resData === 'string' 
+        ? resData 
+        : (resData?.message || err.message || "Tipe barang atau kode tersebut sudah ada di sistem!");
+      
+      setFormError(errorMessage);
     }
   };
 
@@ -82,7 +95,7 @@ export default function ItemTypePage() {
     if (!window.confirm("Apakah Anda yakin ingin menghapus tipe ini?")) return;
     try {
       await api.delete(`/inventory-service/api/inventory/types/${id}`);
-      fetchItemTypes(); // Refresh data setelah berhasil hapus
+      fetchItemTypes(); 
     } catch (err) {
       console.error("Gagal menghapus data:", err);
     }
@@ -104,13 +117,13 @@ export default function ItemTypePage() {
           </button>
         </div>
 
-        {/* TABEL ITEM TYPE */}
+        {/* TABEL ITEM TYPE (Kolom ID Dihilangkan) */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-100">
-                <th className="py-4 px-6 font-semibold">ID</th>
                 <th className="py-4 px-6 font-semibold">Nama Tipe</th>
+                <th className="py-4 px-6 font-semibold">Kode / Singkatan</th>
                 <th className="py-4 px-6 font-semibold">Deskripsi</th>
                 <th className="py-4 px-6 font-semibold text-center">Aksi</th>
               </tr>
@@ -123,9 +136,13 @@ export default function ItemTypePage() {
               ) : types.length > 0 ? (
                 types.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-6 font-medium text-gray-900">#{item.id}</td>
                     <td className="py-4 px-6 font-semibold text-gray-800 flex items-center gap-2">
                       <Layers size={16} className="text-indigo-600" /> {item.name}
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-md font-mono text-xs font-semibold">
+                        {item.code || '-'}
+                      </span>
                     </td>
                     <td className="py-4 px-6 text-gray-500">{item.description}</td>
                     <td className="py-4 px-6 text-center space-x-2">
@@ -167,15 +184,26 @@ export default function ItemTypePage() {
                   <X size={20} />
                 </button>
               </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Nama Tipe</label>
                   <input 
                     type="text" required
-                    placeholder="Contoh: Elektronik, Bahan Baku..." 
+                    placeholder="Contoh: Alat Bantu Dengar (ABD)..." 
                     value={typeName}
                     onChange={(e) => setTypeName(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Kode / Singkatan</label>
+                  <input 
+                    type="text"
+                    placeholder="Contoh: ABD, BAT..." 
+                    value={typeCode}
+                    onChange={(e) => setTypeCode(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -194,6 +222,27 @@ export default function ItemTypePage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL POP-UP ERROR KHUSUS */}
+        {formError && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in duration-200">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                <AlertCircle size={28} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Pemberitahuan</h3>
+                <p className="text-sm text-gray-600 mt-1">{formError}</p>
+              </div>
+              <button 
+                onClick={() => setFormError('')} 
+                className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition shadow-sm"
+              >
+                Mengerti / Tutup
+              </button>
             </div>
           </div>
         )}

@@ -80,7 +80,8 @@ export default function DashboardPage() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
-                  <Bar dataKey="stock" fill="#4f46e5" radius={[6, 6, 0, 0]} name="Jumlah Stok" />
+                  {/* Diubah dari dataKey="stock" menjadi dataKey="quantity" */}
+                  <Bar dataKey="quantity" fill="#4f46e5" radius={[6, 6, 0, 0]} name="Jumlah Quantity" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
