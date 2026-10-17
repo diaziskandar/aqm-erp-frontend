@@ -132,24 +132,26 @@ export default function SalesPage() {
 
     setCustomerStatus('CHECKING');
     try {
-      const response = await api.get(`/sales-service/api/customers/check`, {
-        params: { nik: identifier, name: identifier }
-      });
+      // Deteksi apakah input berupa angka (NIK) atau teks (Nama)
+      const isNumeric = /^\d+$/.test(identifier);
+      const params = isNumeric ? { nik: identifier } : { name: identifier };
+
+      const response = await api.get(`/sales-service/api/customers/check`, { params });
       
-      if (response.data && response.data.exists === false) {
+      const resultData = response.data.data || response.data;
+
+      if (resultData && (resultData.exists === true || resultData.id || resultData.nik)) {
+        setCustomerStatus('EXISTS');
+        setCustomerData(resultData);
+        setTransactionForm(prev => ({ ...prev, customerName: resultData.name }));
+      } else {
         setCustomerStatus('NOT_FOUND');
         setCustomerData(null);
         setNewCustomer(prev => ({
           ...prev,
-          name: isNaN(identifier) ? identifier : '',
-          nik: !isNaN(identifier) ? identifier : ''
+          name: !isNumeric ? identifier : '',
+          nik: isNumeric ? identifier : ''
         }));
-      } else if (response.data && (response.data.id || response.data.nik)) {
-        setCustomerStatus('EXISTS');
-        setCustomerData(response.data);
-      } else {
-        setCustomerStatus('NOT_FOUND');
-        setCustomerData(null);
       }
     } catch (err) {
       console.error("Gagal memeriksa customer:", err);
@@ -181,7 +183,6 @@ export default function SalesPage() {
     dataPayload.append('address', newCustomer.address || '');
     dataPayload.append('email', newCustomer.email || '');
 
-    // Mengirim multiple files lampiran customer
     if (newCustomer.attachmentFiles && newCustomer.attachmentFiles.length > 0) {
       Array.from(newCustomer.attachmentFiles).forEach((file) => {
         dataPayload.append('attachment', file);
@@ -192,9 +193,10 @@ export default function SalesPage() {
       const response = await api.post('/sales-service/api/customers', dataPayload, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setCustomerData(response.data);
+      const registeredData = response.data.data || response.data;
+      setCustomerData(registeredData);
       setCustomerStatus('EXISTS');
-      setTransactionForm(prev => ({ ...prev, customerName: response.data.name }));
+      setTransactionForm(prev => ({ ...prev, customerName: registeredData.name }));
       setIsCustomerModalOpen(false);
     } catch (err) {
       console.error("Gagal mendaftarkan customer:", err);
@@ -229,7 +231,6 @@ export default function SalesPage() {
     }
   };
 
-  // Handler untuk mengunduh Faktur Penjualan PDF per transaksi
   const handleDownloadInvoicePdf = async (transactionId) => {
     try {
       const response = await api.get(`/sales-service/api/sales/${transactionId}/invoice-pdf`, {
@@ -419,7 +420,6 @@ export default function SalesPage() {
     manualSorting: true,
   });
 
-  // Submit Transaksi menggunakan FormData (JSON + Multiple Files)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!transactionForm.customerName) {
@@ -465,7 +465,14 @@ export default function SalesPage() {
       fetchSales();
     } catch (err) {
       console.error("Gagal menambahkan data sales:", err);
-      alert("Gagal menyimpan data transaksi penjualan.");
+      const responseData = err.response?.data;
+      const errorMessage = typeof responseData === 'string'
+        ? responseData
+        : responseData?.message || responseData?.detail || responseData?.error;
+      const statusMessage = err.response?.status
+        ? ` (HTTP ${err.response.status})`
+        : '';
+      alert(errorMessage || `Gagal menyimpan data transaksi penjualan${statusMessage}.`);
     } finally {
       setSubmitting(false);
     }
