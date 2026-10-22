@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
-import MainLayout from '../components/MainLayout';
+import api from '../../services/api';
 import { LayoutDashboard, TrendingUp, DollarSign, Package, BarChart2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -21,7 +20,6 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-800">DASHBOARD UTAMA ERP</h1>
 
@@ -92,6 +90,5 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 }

@@ -4,8 +4,7 @@ import {
   getCoreRowModel, 
   flexRender 
 } from '@tanstack/react-table';
-import api from '../services/api';
-import MainLayout from '../components/MainLayout';
+import api from '../../services/api';
 import { RefreshCw, Search, ChevronLeft, ChevronRight, FileText, Eye, Stethoscope, ShoppingBag, Phone, MapPin, User, Mail, Calendar } from 'lucide-react';
 
 export default function CustomerPage() {
@@ -217,7 +216,6 @@ export default function CustomerPage() {
   });
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         {/* Header Title */}
         <div className="flex justify-between items-center">
@@ -523,6 +521,5 @@ export default function CustomerPage() {
         )}
 
       </div>
-    </MainLayout>
   );
 }

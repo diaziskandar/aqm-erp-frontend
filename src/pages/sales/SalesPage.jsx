@@ -4,8 +4,7 @@ import {
   getCoreRowModel, 
   flexRender 
 } from '@tanstack/react-table';
-import api from '../services/api';
-import MainLayout from '../components/MainLayout';
+import api from '../../services/api';
 import { RefreshCw, Plus, X, Search, ChevronLeft, ChevronRight, FileText, CheckCircle, AlertCircle, UserPlus, Eye, Trash2 } from 'lucide-react';
 
 export default function SalesPage() {
@@ -479,7 +478,6 @@ export default function SalesPage() {
   };
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -1056,6 +1054,5 @@ export default function SalesPage() {
           </div>
         )}
       </div>
-    </MainLayout>
   );
 }

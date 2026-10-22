@@ -4,8 +4,7 @@ import {
   getCoreRowModel, 
   flexRender 
 } from '@tanstack/react-table';
-import api from '../services/api';
-import MainLayout from '../components/MainLayout';
+import api from '../../services/api';
 import { RefreshCw, Building2, Package } from 'lucide-react';
 
 export default function BranchStockPage() {
@@ -124,7 +123,6 @@ export default function BranchStockPage() {
   const currentBranchName = getBranchName(selectedBranchId);
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -204,6 +202,5 @@ export default function BranchStockPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 }

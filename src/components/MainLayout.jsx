@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, ShieldCheck, ChevronDown, ChevronUp, Layers, Menu, Bell, Search, LogOut, ArrowRightLeft, Building2, Users } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, ShieldCheck, ChevronDown, ChevronUp, Layers, Menu, Bell, Search, LogOut, ArrowRightLeft, Building2, Users, ClipboardList } from 'lucide-react';
 import keycloak from '../keycloak';
 
 export default function MainLayout({ children }) {
@@ -88,6 +88,15 @@ export default function MainLayout({ children }) {
                       }`}
                     >
                       <Building2 size={14} /> Stok Cabang
+                    </Link>
+                    {/* Submenu baru untuk Stock Opname */}
+                    <Link 
+                      to="/inventory/stock-opname" 
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                        location.pathname === '/inventory/stock-opname' ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      <ClipboardList size={14} /> Stock Opname
                     </Link>
                   </div>
                 )}

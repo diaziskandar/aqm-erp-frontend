@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import MainLayout from '../components/MainLayout';
 import { Plus, Layers, X, Trash2, Edit, AlertCircle } from 'lucide-react';
-import api from '../services/api'; 
+import api from '../../services/api'; 
 
 export default function ItemTypePage() {
   const [types, setTypes] = useState([]);
@@ -102,7 +101,6 @@ export default function ItemTypePage() {
   };
 
   return (
-    <MainLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -247,6 +245,5 @@ export default function ItemTypePage() {
           </div>
         )}
       </div>
-    </MainLayout>
   );
 }
